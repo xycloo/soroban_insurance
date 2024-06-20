@@ -80,6 +80,10 @@ impl Pool {
         get_fee_per_share_universal(&e, actual_period(&e))
     }
 
+    pub fn read_current_period(e: Env) -> i32 {
+        actual_period(&e)
+    }
+
     pub fn update(env: Env, hash: BytesN<32>) {
         env.storage().persistent().get::<InstanceDataKey, Address>(&InstanceDataKey::Admin).unwrap();
 

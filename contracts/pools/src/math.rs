@@ -62,9 +62,7 @@ pub(crate) fn actual_period(e: &Env) -> i32 {
     let current_ledger = e.ledger().sequence();
     let genesis_ledger = get_genesis(&e);
     let periods = get_periods(&e);
-    //calculate_period(current_ledger as i128, genesis_ledger as i128, periods as i128);
-
-    1
+    calculate_period(current_ledger as i128, genesis_ledger as i128, periods as i128)
 }
 
 pub(crate) fn calculate_to_mint(e: &Env, amount: i128, total_supply: i128, total_liquidity: i128) -> i128 {
