@@ -7,9 +7,7 @@ use soroban_sdk::{contract, contractimpl, symbol_short, Address, BytesN, Env};
 pub struct Pool;
 
 pub trait SubscribeInsurance {
-    /// The entry point for executing a flash loan, the initiator (or borrower) provides:
-    /// `receiver_id: Address` The address of the receiver contract which contains the borrowing logic.
-    /// `amount` Amount of `token_id` to borrow (`token_id` is set when the contract is initialized).
+    
     fn subscribe(e: Env, initiator: Address, amount: i128, q: i32) -> Result<(), Error>;
 
     fn claim_reward(env: Env, claimant: Address) -> Result<(), Error>;
@@ -17,13 +15,7 @@ pub trait SubscribeInsurance {
 }
 
 pub trait Vault {
-    /// deposit
-
-    /// Allows to deposit into the pool and mints liquidity provider shares to the lender.
-    /// This action currently must be authorized by the `admin`, so the proxy contract.
-    /// This allows a pool to be only funded when the pool is part of the wider protocol, and is not an old pool.
-    /// This design decision may be removed in the next release, follow https://github.com/xycloo/xycloans/issues/16
-
+   
     /// `deposit()` must be provided with:
     /// `from: Address` Address of the liquidity provider.
     /// `amount: i128` Amount of `token_id` that `from` wants to deposit in the pool.
@@ -51,8 +43,6 @@ pub trait Vault {
     /// withdraw
 
     /// Allows to withdraw liquidity from the pool by burning liquidity provider shares.
-    /// Will result in a cross contract call to the flash loan, which holds the funds that are being withdrawn.
-    /// The liquidity provider can also withdraw only a portion of its shares.
 
     /// withdraw() must be provided with:
     /// `addr: Address` Address of the liquidity provider
