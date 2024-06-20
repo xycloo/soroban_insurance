@@ -66,13 +66,14 @@ pub trait Initializable {
     /// `initialize()` must be provided with:
     /// `token_id: Address` The token used to manage liquidity in the pool (to subsribe insurances, pay premiums etc), and can be different from the asset pair tracked
     /// 'volatility': the amount the asset has to move (+/-) with respect to the base to pay out premiums
-    fn initialize(env: Env, admin: Address, token: Address, oracle: Address, periods_in_days: i32, volatility: i128) -> Result<(), Error>;
+    /// 'multiplier': insurance premiums are calculated with the following formula: premium = amount + (amount * multiplier / time_until_end_of_period); the greater the multiplier, the higher the premium  
+    fn initialize(env: Env, admin: Address, token: Address, oracle: Address, periods_in_days: i32, volatility: i128, multiplier: i32) -> Result<(), Error>;
 }
 
 #[contractimpl]
 impl Pool {
-    pub fn glob(e: Env ) -> (i128, i128) {
-        (read_refund_global(&e, actual_period(&e)), get_tot_liquidity(&e, actual_period(&e)))
+    pub fn glob(e: Env ) -> (i128, i128, i128) {
+        (read_refund_global(&e, actual_period(&e)), get_tot_liquidity(&e, actual_period(&e)), get_fee_per_share_universal(&e, actual_period(&e)))
     }
 
     pub fn fpsu(e: Env) -> i128 {
@@ -88,7 +89,7 @@ impl Pool {
 
 #[contractimpl]
 impl Initializable for Pool {
-    fn initialize(env: Env, admin: Address, token: Address, oracle: Address, periods_in_days: i32, volatility: i128) -> Result<(), Error> {
+    fn initialize(env: Env, admin: Address, token: Address, oracle: Address, periods_in_days: i32, volatility: i128, multiplier: i32) -> Result<(), Error> {
         if has_token_id(&env) {
             return Err(Error::AlreadyInitialized);
         }
@@ -106,6 +107,7 @@ impl Initializable for Pool {
         write_genesis(&env);
         write_periods(&env, periods_in_ledgers);
         put_volatility(&env, volatility);
+        put_multiplier(&env, multiplier);
         Ok(())
     }
 }
@@ -223,6 +225,7 @@ impl SubscribeInsurance for Pool {
         initiator.require_auth();
         
         let current_period = actual_period(&e);
+        let multiplier = get_multiplier(&e);
         
         let tot_liquidity = get_tot_liquidity(&e, current_period);
         let refund_global = read_refund_global(&e, current_period);
@@ -231,7 +234,7 @@ impl SubscribeInsurance for Pool {
         let time_to_end = find_x(&e, current_period);
         // calculated as y = amount * (1 + (1 / (q * time_to_end)))
         // the greater q, the greater the differential in refund prize if enter later
-        let possible_amount_to_refund = calculate_refund(time_to_end as i128, amount);
+        let possible_amount_to_refund = calculate_refund(time_to_end as i128, amount, multiplier as i128);
         
         if refund_global + possible_amount_to_refund > tot_liquidity {
             return Err(Error::NotEnoughLiquidity);

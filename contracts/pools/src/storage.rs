@@ -215,8 +215,20 @@ pub(crate) fn write_periods(e: &Env, periods_in_ledgers: i32) {            // us
     e.storage().instance().set(&key, &periods_in_ledgers);
 }
 
-pub(crate) fn get_periods(e: &Env) -> i32 {                        // used
+pub(crate) fn get_periods(e: &Env) -> i32 {                      
     let key = InstanceDataKey::Periods;
     let periods: i32 = e.storage().instance().get(&key).unwrap();
     periods
 }
+
+pub(crate) fn put_multiplier(e: &Env, multiplier: i32) {                       
+    let key = InstanceDataKey::Multiplier;
+    e.storage().instance().set(&key, &multiplier);
+}
+
+pub(crate) fn get_multiplier(e: &Env) -> i32 {                       
+    let key = InstanceDataKey::Multiplier;
+    let multiplier: i32 = e.storage().instance().get(&key).unwrap();
+    multiplier
+}
+

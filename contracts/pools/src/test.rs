@@ -86,7 +86,7 @@ fn deposit_withdraw() {
 
     let oracle_addr = env.register_contract(&None, mock_20::PricesMock20);
 
-    pool_client.initialize(&admin1, &token_id, &oracle_addr, &30, &1000000000);
+    pool_client.initialize(&admin1, &token_id, &oracle_addr, &30, &1000000000, &3);
 
     pool_client.deposit(&user1, &(1000 * STROOP as i128));
     pool_client.deposit(&user2, &(500 * STROOP as i128));
@@ -95,6 +95,9 @@ fn deposit_withdraw() {
 }
 
 
+/// check the "subscribe" function and 
+/// - that the rewards are distributed correctly between liquidity provider shares
+/// - that the possible premiums to pay are stored correctly 
 #[test]
 fn insurance() {
     let env = Env::default();
@@ -120,7 +123,7 @@ fn insurance() {
 
     let oracle_addr = env.register_contract(&None, mock_20::PricesMock20);
 
-    pool_client.initialize(&admin1, &token_id, &oracle_addr, &30, &1000000000);
+    pool_client.initialize(&admin1, &token_id, &oracle_addr, &30, &1000000000, &3);
 
     pool_client.deposit(&user1, &(1000 * STROOP as i128));
     pool_client.deposit(&user2, &(500 * STROOP as i128));
@@ -133,9 +136,69 @@ fn insurance() {
 
     pool_client.subscribe(&user3, &2000000);
 
+    std::println!("{:?}", pool_client.glob());
+
     std::println!("{:?}", pool_client.fpsu());
 
     env.ledger().with_mut(|ledger| {
         ledger.sequence_number += 200
     });
+
+    std::println!("{:?}", pool_client.fpsu());
+
+
+}
+
+
+#[test]
+fn withdraw() {
+    let env = Env::default();
+
+    env.mock_all_auths();
+    env.budget().reset_unlimited();
+
+    let admin1 = Address::generate(&env);
+    let user1 = Address::generate(&env);
+    let user2 = Address::generate(&env);
+
+    let user3 = Address::generate(&env);
+
+    let token_id = env.register_stellar_asset_contract(admin1.clone());
+    let token_admin = token::StellarAssetClient::new(&env, &token_id);
+    
+    token_admin.mint(&user1, &(1000 * STROOP as i128));
+    token_admin.mint(&user2, &(500 * STROOP as i128));
+    token_admin.mint(&user3, &(200 * STROOP as i128));
+
+    let pool_addr = env.register_contract(&None, Pool);
+    let pool_client = PoolClient::new(&env, &pool_addr);
+
+    let oracle_addr = env.register_contract(&None, mock_20::PricesMock20);
+
+    pool_client.initialize(&admin1, &token_id, &oracle_addr, &30, &1000000000, &3);
+
+    pool_client.deposit(&user1, &(1000 * STROOP as i128));
+    pool_client.deposit(&user2, &(500 * STROOP as i128));
+
+    env.ledger().with_mut(|ledger| {
+        ledger.sequence_number += 200
+    });
+
+    std::println!("{:?}", pool_client.glob());
+
+    pool_client.subscribe(&user3, &2000000);
+
+    std::println!("{:?}", pool_client.glob());
+
+    std::println!("{:?}", pool_client.fpsu());
+
+    env.ledger().with_mut(|ledger| {
+        ledger.sequence_number += 200
+    });
+
+    std::println!("{:?}", pool_client.fpsu());
+
+    
+
+
 }

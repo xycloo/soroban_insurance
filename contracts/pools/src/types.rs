@@ -31,7 +31,8 @@ pub enum InstanceDataKey {
     Periods,
     Oracle,
     Volatility,
-    Admin
+    Admin,
+    Multiplier
 }
 
 #[derive(Clone)]

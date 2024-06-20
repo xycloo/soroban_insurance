@@ -113,8 +113,8 @@ pub(crate) fn find_x(env: &Env, current_period: i32) -> i32 {
     x
 }
 
-pub(crate) fn calculate_refund(time_to_end: i128, amount: i128) -> i128 {
-    let coefficient = amount / time_to_end;
+pub(crate) fn calculate_refund(time_to_end: i128, amount: i128, multiplier: i128) -> i128 {
+    let coefficient = amount * multiplier / time_to_end;
 
     amount + coefficient
 }
