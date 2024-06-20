@@ -86,7 +86,7 @@ fn deposit_withdraw() {
 
     let oracle_addr = env.register_contract(&None, mock_20::PricesMock20);
 
-    pool_client.initialize(&admin1, &token_id, &oracle_addr, &30);
+    pool_client.initialize(&admin1, &token_id, &oracle_addr, &30, &1000000000);
 
     pool_client.deposit(&user1, &(1000 * STROOP as i128));
     pool_client.deposit(&user2, &(500 * STROOP as i128));
@@ -120,7 +120,7 @@ fn insurance() {
 
     let oracle_addr = env.register_contract(&None, mock_20::PricesMock20);
 
-    pool_client.initialize(&admin1, &token_id, &oracle_addr, &30);
+    pool_client.initialize(&admin1, &token_id, &oracle_addr, &30, &1000000000);
 
     pool_client.deposit(&user1, &(1000 * STROOP as i128));
     pool_client.deposit(&user2, &(500 * STROOP as i128));
@@ -131,7 +131,7 @@ fn insurance() {
 
     std::println!("{:?}", pool_client.glob());
 
-    pool_client.subscribe(&user3, &2000000, &1);
+    pool_client.subscribe(&user3, &2000000);
 
     std::println!("{:?}", pool_client.fpsu());
 

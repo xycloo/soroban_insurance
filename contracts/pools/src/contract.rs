@@ -8,7 +8,7 @@ pub struct Pool;
 
 pub trait SubscribeInsurance {
     
-    fn subscribe(e: Env, initiator: Address, amount: i128, q: i32) -> Result<(), Error>;
+    fn subscribe(e: Env, initiator: Address, amount: i128) -> Result<(), Error>;
 
     fn claim_reward(env: Env, claimant: Address) -> Result<(), Error>;
 
@@ -64,9 +64,9 @@ pub trait Initializable {
     /// Constructor function, only to be callable once
 
     /// `initialize()` must be provided with:
-    /// `token_id: Address` The pool's token.
-    /// `flash_loan` The address of the associated flash loan contract. `flash_loan` should have `current_contract_address()` as `lp`.
-    fn initialize(env: Env, admin: Address, token: Address, oracle: Address, periods_in_days: i32) -> Result<(), Error>;
+    /// `token_id: Address` The token used to manage liquidity in the pool (to subsribe insurances, pay premiums etc), and can be different from the asset pair tracked
+    /// 'volatility': the amount the asset has to move (+/-) with respect to the base to pay out premiums
+    fn initialize(env: Env, admin: Address, token: Address, oracle: Address, periods_in_days: i32, volatility: i128) -> Result<(), Error>;
 }
 
 #[contractimpl]
@@ -88,7 +88,7 @@ impl Pool {
 
 #[contractimpl]
 impl Initializable for Pool {
-    fn initialize(env: Env, admin: Address, token: Address, oracle: Address, periods_in_days: i32) -> Result<(), Error> {
+    fn initialize(env: Env, admin: Address, token: Address, oracle: Address, periods_in_days: i32, volatility: i128) -> Result<(), Error> {
         if has_token_id(&env) {
             return Err(Error::AlreadyInitialized);
         }
@@ -105,6 +105,7 @@ impl Initializable for Pool {
         put_token_id(&env, token);
         write_genesis(&env);
         write_periods(&env, periods_in_ledgers);
+        put_volatility(&env, volatility);
         Ok(())
     }
 }
@@ -218,7 +219,7 @@ impl Vault for Pool {
 
 #[contractimpl]
 impl SubscribeInsurance for Pool {
-    fn subscribe(e: Env, initiator: Address, amount: i128, q: i32) -> Result<(), Error> {
+    fn subscribe(e: Env, initiator: Address, amount: i128) -> Result<(), Error> {
         initiator.require_auth();
         
         let current_period = actual_period(&e);
@@ -230,7 +231,7 @@ impl SubscribeInsurance for Pool {
         let time_to_end = find_x(&e, current_period);
         // calculated as y = amount * (1 + (1 / (q * time_to_end)))
         // the greater q, the greater the differential in refund prize if enter later
-        let possible_amount_to_refund = calculate_refund(time_to_end as i128, amount, q as i128);
+        let possible_amount_to_refund = calculate_refund(time_to_end as i128, amount);
         
         if refund_global + possible_amount_to_refund > tot_liquidity {
             return Err(Error::NotEnoughLiquidity);

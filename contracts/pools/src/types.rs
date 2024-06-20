@@ -29,7 +29,6 @@ pub enum InstanceDataKey {
     TokenId,
     GenesisPeriod,
     Periods,
-    Dust,
     Oracle,
     Volatility,
     Admin

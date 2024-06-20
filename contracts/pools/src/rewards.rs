@@ -22,27 +22,6 @@ pub(crate) fn update_rewards(e: &Env, addr: Address, period: i32) {
     events::new_fees(e, addr, lender_fees, period);
 }
 
-/*
-pub(crate) fn update_losses(e: &Env, addr: Address) {
-    let period = get_period(&e);
-    let loss_per_share_universal = get_loss_per_share_universal(&e, period);
-    let lender_losses = compute_losses(
-        read_balance(e, addr.clone(), period),
-        loss_per_share_universal,
-        read_loss_per_share_particular(e, addr.clone(), period),
-    );
-
-    write_loss_per_share_particular(e, addr.clone(), loss_per_share_universal, period);
-    
-    let mut matured_losses = read_matured_losses_particular(e, addr.clone(), period);
-    matured_losses.add_assign(lender_losses);
-    
-    write_matured_losses_particular(e, addr.clone(), matured_losses, period);
-    events::new_loss(e, addr, lender_losses, period);
-}
-
-    */
-
 pub(crate) fn update_fee_per_share_universal(e: &Env, collected: i128, period: i32) {
     let fee_per_share_universal = get_fee_per_share_universal(e, period);
     let total_supply = get_tot_supply(e, period);

@@ -99,7 +99,7 @@ pub(crate) fn read_refund_global(e: &Env, period: i32) -> i128 {
     refund
 }
 
-pub(crate) fn bump_instance(env: &Env) {                                                    // used
+pub(crate) fn bump_instance(env: &Env) {                                                    
     env.storage()
         .instance()
         .extend_ttl(INSTANCE_LEDGER_TTL_THRESHOLD, INSTANCE_LEDGER_LIFE);
@@ -136,17 +136,17 @@ pub(crate) fn put_fee_per_share_universal(e: &Env, last_recorded: i128, period: 
     e.storage().instance().set(&key, &last_recorded);
 }
 
-pub(crate) fn get_fee_per_share_universal(e: &Env, period: i32) -> i128 {                // used
+pub(crate) fn get_fee_per_share_universal(e: &Env, period: i32) -> i128 {               
     let key = PersistentDataKey::FeePerShareUniversal(period);
     e.storage().instance().get(&key).unwrap_or(0)
 }
 
-pub(crate) fn has_token_id(e: &Env) -> bool {     // used
+pub(crate) fn has_token_id(e: &Env) -> bool {    
     let key = InstanceDataKey::TokenId;
     e.storage().instance().has(&key)
 }
 
-pub(crate) fn put_token_id(e: &Env, token_id: Address) {      // used
+pub(crate) fn put_token_id(e: &Env, token_id: Address) {   
     let key = InstanceDataKey::TokenId;
     e.storage().instance().set(&key, &token_id);
 }
@@ -161,12 +161,12 @@ pub(crate) fn get_token_id(e: &Env) -> Result<Address, Error> {
     }
 }
 
-pub(crate) fn has_oracle(e: &Env) -> bool {     // used
+pub(crate) fn has_oracle(e: &Env) -> bool {     
     let key = InstanceDataKey::Oracle;
     e.storage().instance().has(&key)
 }
 
-pub(crate) fn put_oracle_id(e: &Env, oracle: Address) {      // used
+pub(crate) fn put_oracle_id(e: &Env, oracle: Address) {      
     let key = InstanceDataKey::Oracle;
     e.storage().instance().set(&key, &oracle);
 }
@@ -182,7 +182,7 @@ pub(crate) fn get_oracle_id(e: &Env) -> Result<Address, Error> {
 }
 
 
-pub(crate) fn put_volatility(e: &Env, amount: i128) {      // used
+pub(crate) fn put_volatility(e: &Env, amount: i128) {    
     let key = InstanceDataKey::Volatility;
     e.storage().instance().set(&key, &amount);
 }
@@ -197,7 +197,7 @@ pub(crate) fn get_volatility(e: &Env) -> Result<i128, Error> {
     }
 }
 
-pub(crate) fn write_genesis(e: &Env) {                              // used
+pub(crate) fn write_genesis(e: &Env) {                            
     let key = InstanceDataKey::GenesisPeriod;
     let current_ledger = e.ledger().sequence() as i32;
     e.storage().instance().set(&key, &current_ledger);
