@@ -1,11 +1,10 @@
 use soroban_sdk::{Address, Env};
-use fixed_point_math;
 
 use crate::{
-    math::calculate_period, types::{BalanceObject, Error, InstanceDataKey, Insurance, PersistentDataKey}, INSTANCE_LEDGER_LIFE, INSTANCE_LEDGER_TTL_THRESHOLD, PERSISTENT_LEDGER_LIFE, PERSISTENT_LEDGER_TTL_THRESHOLD
+    types::{BalanceObject, Error, InstanceDataKey, Insurance, PersistentDataKey}, INSTANCE_LEDGER_LIFE, INSTANCE_LEDGER_TTL_THRESHOLD, PERSISTENT_LEDGER_LIFE, PERSISTENT_LEDGER_TTL_THRESHOLD
 };
 
-// User specific state.
+// persistent
 
 pub(crate) fn bump_persistent(e: &Env, key: &PersistentDataKey) {
     e.storage()
@@ -87,6 +86,13 @@ pub(crate) fn read_refund_particular(e: &Env, addr: Address, period: i32) -> Opt
     e.storage().persistent().get(&key)
 }
 
+pub(crate) fn has_refund_particular(e: &Env, addr: Address, period: i32) -> bool {
+    let balance_object = BalanceObject::new(addr, period);
+    let key = PersistentDataKey::RefundParticular(balance_object);
+    
+    e.storage().persistent().has(&key)
+}
+
 pub(crate) fn write_refund_global(e: &Env, amount: i128, period: i32) {
     let key = PersistentDataKey::RefundGlobal(period);
     e.storage().persistent().set(&key, &amount);
@@ -97,12 +103,6 @@ pub(crate) fn read_refund_global(e: &Env, period: i32) -> i128 {
     let key = PersistentDataKey::RefundGlobal(period);
     let refund = e.storage().persistent().get(&key).unwrap_or(0);
     refund
-}
-
-pub(crate) fn bump_instance(env: &Env) {                                                    
-    env.storage()
-        .instance()
-        .extend_ttl(INSTANCE_LEDGER_TTL_THRESHOLD, INSTANCE_LEDGER_LIFE);
 }
 
 pub(crate) fn put_tot_supply(e: &Env, supply: i128, period: i32) {
@@ -133,12 +133,22 @@ pub(crate) fn get_tot_liquidity(e: &Env, period: i32) -> i128 {
 
 pub(crate) fn put_fee_per_share_universal(e: &Env, last_recorded: i128, period: i32) {
     let key = PersistentDataKey::FeePerShareUniversal(period);
-    e.storage().instance().set(&key, &last_recorded);
+    e.storage().persistent().set(&key, &last_recorded);
+
+    bump_persistent(e, &key);
 }
 
 pub(crate) fn get_fee_per_share_universal(e: &Env, period: i32) -> i128 {               
     let key = PersistentDataKey::FeePerShareUniversal(period);
-    e.storage().instance().get(&key).unwrap_or(0)
+    e.storage().persistent().get(&key).unwrap_or(0)
+}
+
+// instance
+
+pub(crate) fn bump_instance(env: &Env) {                                                    
+    env.storage()
+        .instance()
+        .extend_ttl(INSTANCE_LEDGER_TTL_THRESHOLD, INSTANCE_LEDGER_LIFE);
 }
 
 pub(crate) fn has_token_id(e: &Env) -> bool {    

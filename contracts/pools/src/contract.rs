@@ -136,7 +136,7 @@ impl Vault for Pool {
         let token_client = get_token_client(&env);
         transfer_in_pool(&env, &token_client, &from, &amount);
 
-         // mint the new shares to the lender.
+        // mint the new shares to the lender.
         // shares to mint will depend on: f(x) = amount_deposited * tot_supply_shares / tot_liquidity
         mint_shares(&env, from.clone(), amount, period);
 
@@ -160,7 +160,6 @@ impl Vault for Pool {
         Ok(())
     }
 
-    // neened to return result or error?
     fn update_fee_rewards(env: Env, addr: Address, period: i32) -> Result<(), Error> {
         bump_instance(&env);
 
@@ -226,9 +225,15 @@ impl Vault for Pool {
 #[contractimpl]
 impl SubscribeInsurance for Pool {
     fn subscribe(e: Env, initiator: Address, amount: i128) -> Result<(), Error> {
+        let current_period: i32 = actual_period(&e);
+
+        // check subscriber doesn't have an insurance yet for the current period
+        if has_refund_particular(&e, initiator.clone(), current_period) {
+            return Err(Error::AlreadySubscribed);
+        }
+        
         initiator.require_auth();
         
-        let current_period = actual_period(&e);
         let multiplier = get_multiplier(&e);
         
         let tot_liquidity = get_tot_liquidity(&e, current_period);

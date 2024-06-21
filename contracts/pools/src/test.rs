@@ -98,6 +98,8 @@ fn deposit_withdraw() {
 /// check the "subscribe" function and 
 /// - that the rewards are distributed correctly between liquidity provider shares
 /// - that the possible premiums to pay are stored correctly 
+/// - additianally we check that we can't perorm aother suscription for the current period (should fail with error "AlreadySubscribed")
+#[should_panic(expected = "HostError: Error(Contract, #11)")]
 #[test]
 fn insurance() {
     let env = Env::default();
@@ -146,12 +148,13 @@ fn insurance() {
 
     std::println!("{:?}", pool_client.fpsu());
 
-
+    pool_client.subscribe(&user3, &2000000);
 }
 
 /// check
 /// - correct succession of periods (persistent data not automatiaclly tranferrable between periods)
-/// - this test shouldd fail and return ContractError 3: NoFeesMatured, as we check fees for period 2
+/// - correct withdrawal of matured fees
+#[should_panic(expected = "HostError: Error(Contract, #3)")]
 #[test]
 fn periods() {
     let env = Env::default();
@@ -169,7 +172,7 @@ fn periods() {
     let token_admin = token::StellarAssetClient::new(&env, &token_id);
     
     token_admin.mint(&user1, &(1000 * STROOP as i128));
-    token_admin.mint(&user2, &(500 * STROOP as i128));
+    token_admin.mint(&user2, &(6000 * STROOP as i128));
     token_admin.mint(&user3, &(200 * STROOP as i128));
 
     let pool_addr = env.register_contract(&None, Pool);
@@ -202,19 +205,63 @@ fn periods() {
     std::println!("{:?}", pool_client.read_current_period());
 
     env.ledger().with_mut(|ledger| {
-        ledger.sequence_number += 30 * DAY_IN_LEDGERS
+        ledger.sequence_number += 5 * DAY_IN_LEDGERS
     });
+
+    // need to do that to bump instance and persistent several times (oterwise in tests expires before the actual threshold)
+    pool_client.deposit(&user2, &(50 * STROOP as i128));
+
+    env.ledger().with_mut(|ledger| {
+        ledger.sequence_number += 5 * DAY_IN_LEDGERS
+    });
+
+    pool_client.deposit(&user2, &(50 * STROOP as i128));
+
+    env.ledger().with_mut(|ledger| {
+        ledger.sequence_number += 5 * DAY_IN_LEDGERS
+    });
+
+    pool_client.deposit(&user2, &(50 * STROOP as i128));
+
+    env.ledger().with_mut(|ledger| {
+        ledger.sequence_number += 5 * DAY_IN_LEDGERS
+    });
+
+    pool_client.deposit(&user2, &(50 * STROOP as i128));
+
+    env.ledger().with_mut(|ledger| {
+        ledger.sequence_number += 5 * DAY_IN_LEDGERS
+    });
+
+    // check before entering period 2
+    std::println!("{:?}", pool_client.glob());
+
+    pool_client.deposit(&user2, &(50 * STROOP as i128));
+
+    env.ledger().with_mut(|ledger| {
+        ledger.sequence_number += 5 * DAY_IN_LEDGERS
+    });
+
+    pool_client.deposit(&user2, &(50 * STROOP as i128));
+
+    std::println!("{:?}", pool_client.glob());
 
     std::println!("{:?}", pool_client.read_current_period());
 
-    pool_client.withdraw_matured(&user3, &2)
+    // updating and withdrawing fees for the previous period: this works
+    pool_client.update_fee_rewards(&user2, &1);
+    pool_client.withdraw_matured(&user2, &1);
+
+    // this should panic as no rewards for second period
+    pool_client.update_fee_rewards(&user2, &2);
+    pool_client.withdraw_matured(&user2, &2)
 
 }
 
 /// check
 /// checking correct withdrawal of matured fees
 #[test]
-fn withdraw_matured() {
+fn refund() {
     let env = Env::default();
 
     env.mock_all_auths();
@@ -230,7 +277,7 @@ fn withdraw_matured() {
     let token_admin = token::StellarAssetClient::new(&env, &token_id);
     
     token_admin.mint(&user1, &(1000 * STROOP as i128));
-    token_admin.mint(&user2, &(500 * STROOP as i128));
+    token_admin.mint(&user2, &(6000 * STROOP as i128));
     token_admin.mint(&user3, &(200 * STROOP as i128));
 
     let pool_addr = env.register_contract(&None, Pool);
@@ -262,16 +309,11 @@ fn withdraw_matured() {
     std::println!("{:?}", pool_client.fpsu());
     std::println!("{:?}", pool_client.read_current_period());
 
-    /*
     env.ledger().with_mut(|ledger| {
-        ledger.sequence_number += 30 * DAY_IN_LEDGERS
+        ledger.sequence_number += 5 * DAY_IN_LEDGERS
     });
 
-    std::println!("{:?}", pool_client.read_current_period());
-    */
-
-    pool_client.update_fee_rewards(&user1, &1);
-
-    pool_client.withdraw_matured(&user1, &1)
+    // need to do that to bump instance and persistent several times (oterwise in tests expires before the actual threshold)
+    pool_client.deposit(&user2, &(50 * STROOP as i128));
 
 }
