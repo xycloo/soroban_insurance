@@ -64,5 +64,6 @@ pub enum Error {
     NotEnoughLiquidity = 8,
     NoInsurance = 9,
     NoPrice = 10,
-    AlreadySubscribed = 11
+    AlreadySubscribed = 11,
+    UnmetCondition = 12
 }

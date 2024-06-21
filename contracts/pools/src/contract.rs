@@ -280,6 +280,8 @@ impl SubscribeInsurance for Pool {
             write_refund_global(&e, refund_global - refund.amount, current_period);
             put_tot_liquidity(&e, tot_liquidity - refund.amount, current_period);
             e.storage().persistent().remove(&PersistentDataKey::RefundParticular(BalanceObject::new(claimant, current_period)))
+        } else {
+            return Err(Error::UnmetCondition)
         }
 
         bump_instance(&e);
