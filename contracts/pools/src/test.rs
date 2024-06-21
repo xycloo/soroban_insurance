@@ -1,13 +1,21 @@
 use fixed_point_math::STROOP;
-use soroban_sdk::{contract, contractimpl, contracttype, testutils::{Address as _, Ledger}, token, Address, Env};
+use soroban_sdk::{
+    contract, contractimpl, contracttype,
+    testutils::{Address as _, Ledger},
+    token, Address, Env,
+};
 
-use crate::{contract::{Pool, PoolClient}, reflector::Asset, DAY_IN_LEDGERS};
+use crate::{
+    contract::{Pool, PoolClient},
+    reflector::Asset,
+    DAY_IN_LEDGERS,
+};
 
 mod mock_20 {
+    use super::PriceData;
+    use crate::reflector::Asset;
     use fixed_point_math::STROOP;
     use soroban_sdk::{contract, contractimpl, symbol_short, Env};
-    use crate::{reflector::Asset};
-    use super::PriceData;
 
     #[contract]
     pub struct PricesMock20;
@@ -16,13 +24,19 @@ mod mock_20 {
     impl PricesMock20 {
         pub fn lastprice(env: Env, asset: Asset) -> Option<PriceData> {
             Some(PriceData {
-                price: env.storage().instance().get(&symbol_short!("PRICE")).unwrap_or(20 * STROOP as i128),
-                timestamp: 0
+                price: env
+                    .storage()
+                    .instance()
+                    .get(&symbol_short!("PRICE"))
+                    .unwrap_or(20 * STROOP as i128),
+                timestamp: 0,
             })
         }
 
         pub fn change_price(env: Env, price: i128) {
-            env.storage().instance().set(&symbol_short!("PRICE"), &price)
+            env.storage()
+                .instance()
+                .set(&symbol_short!("PRICE"), &price)
         }
     }
 }
@@ -53,7 +67,7 @@ fn deposit_withdraw() {
 
     let token_id = env.register_stellar_asset_contract(admin1.clone());
     let token_admin = token::StellarAssetClient::new(&env, &token_id);
-    
+
     token_admin.mint(&user1, &(1000 * STROOP as i128));
     token_admin.mint(&user2, &(500 * STROOP as i128));
 
@@ -70,10 +84,9 @@ fn deposit_withdraw() {
     pool_client.withdraw(&user1, &1);
 }
 
-
-/// check the "subscribe" function and 
+/// check the "subscribe" function and
 /// - that the rewards are distributed correctly between liquidity provider shares
-/// - that the possible premiums to pay are stored correctly 
+/// - that the possible premiums to pay are stored correctly
 /// - additianally we check that we can't perorm aother suscription for the current period (should fail with error "AlreadySubscribed")
 #[should_panic(expected = "HostError: Error(Contract, #11)")]
 #[test]
@@ -91,7 +104,7 @@ fn insurance() {
 
     let token_id = env.register_stellar_asset_contract(admin1.clone());
     let token_admin = token::StellarAssetClient::new(&env, &token_id);
-    
+
     token_admin.mint(&user1, &(1000 * STROOP as i128));
     token_admin.mint(&user2, &(500 * STROOP as i128));
     token_admin.mint(&user3, &(200 * STROOP as i128));
@@ -106,9 +119,8 @@ fn insurance() {
     pool_client.deposit(&user1, &(1000 * STROOP as i128));
     pool_client.deposit(&user2, &(500 * STROOP as i128));
 
-    env.ledger().with_mut(|ledger| {
-        ledger.sequence_number += 200
-    });
+    env.ledger()
+        .with_mut(|ledger| ledger.sequence_number += 200);
 
     std::println!("{:?}", pool_client.glob());
 
@@ -118,9 +130,8 @@ fn insurance() {
 
     std::println!("{:?}", pool_client.fpsu());
 
-    env.ledger().with_mut(|ledger| {
-        ledger.sequence_number += 200
-    });
+    env.ledger()
+        .with_mut(|ledger| ledger.sequence_number += 200);
 
     std::println!("{:?}", pool_client.fpsu());
 
@@ -146,7 +157,7 @@ fn periods() {
 
     let token_id = env.register_stellar_asset_contract(admin1.clone());
     let token_admin = token::StellarAssetClient::new(&env, &token_id);
-    
+
     token_admin.mint(&user1, &(1000 * STROOP as i128));
     token_admin.mint(&user2, &(6000 * STROOP as i128));
     token_admin.mint(&user3, &(200 * STROOP as i128));
@@ -161,9 +172,8 @@ fn periods() {
     pool_client.deposit(&user1, &(1000 * STROOP as i128));
     pool_client.deposit(&user2, &(500 * STROOP as i128));
 
-    env.ledger().with_mut(|ledger| {
-        ledger.sequence_number += 200
-    });
+    env.ledger()
+        .with_mut(|ledger| ledger.sequence_number += 200);
 
     assert_eq!(pool_client.glob(), (0, 15000000000, 0));
 
@@ -171,48 +181,41 @@ fn periods() {
 
     assert_eq!(pool_client.glob(), (2030000, 15000000000, 1333));
 
-    env.ledger().with_mut(|ledger| {
-        ledger.sequence_number += 200
-    });
+    env.ledger()
+        .with_mut(|ledger| ledger.sequence_number += 200);
 
     assert_eq!(pool_client.read_current_period(), 1);
 
-    env.ledger().with_mut(|ledger| {
-        ledger.sequence_number += 5 * DAY_IN_LEDGERS
-    });
+    env.ledger()
+        .with_mut(|ledger| ledger.sequence_number += 5 * DAY_IN_LEDGERS);
 
     // need to do that to bump instance and persistent several times (oterwise in tests expires before the actual threshold)
     pool_client.deposit(&user2, &(50 * STROOP as i128));
 
-    env.ledger().with_mut(|ledger| {
-        ledger.sequence_number += 5 * DAY_IN_LEDGERS
-    });
+    env.ledger()
+        .with_mut(|ledger| ledger.sequence_number += 5 * DAY_IN_LEDGERS);
 
     pool_client.deposit(&user2, &(50 * STROOP as i128));
 
-    env.ledger().with_mut(|ledger| {
-        ledger.sequence_number += 5 * DAY_IN_LEDGERS
-    });
+    env.ledger()
+        .with_mut(|ledger| ledger.sequence_number += 5 * DAY_IN_LEDGERS);
 
     pool_client.deposit(&user2, &(50 * STROOP as i128));
 
-    env.ledger().with_mut(|ledger| {
-        ledger.sequence_number += 5 * DAY_IN_LEDGERS
-    });
+    env.ledger()
+        .with_mut(|ledger| ledger.sequence_number += 5 * DAY_IN_LEDGERS);
 
     pool_client.deposit(&user2, &(50 * STROOP as i128));
 
-    env.ledger().with_mut(|ledger| {
-        ledger.sequence_number += 5 * DAY_IN_LEDGERS
-    });
+    env.ledger()
+        .with_mut(|ledger| ledger.sequence_number += 5 * DAY_IN_LEDGERS);
 
     pool_client.deposit(&user2, &(50 * STROOP as i128));
 
     assert_eq!(pool_client.read_current_period(), 1);
-    
-    env.ledger().with_mut(|ledger| {
-        ledger.sequence_number += 5 * DAY_IN_LEDGERS
-    });
+
+    env.ledger()
+        .with_mut(|ledger| ledger.sequence_number += 5 * DAY_IN_LEDGERS);
 
     assert_eq!(pool_client.read_current_period(), 2);
 
@@ -245,7 +248,7 @@ fn refund() {
     let token_id = env.register_stellar_asset_contract(admin1.clone());
     let token_admin = token::StellarAssetClient::new(&env, &token_id);
     let token_client = token::Client::new(&env, &token_id);
-    
+
     token_admin.mint(&user1, &(1000 * STROOP as i128));
     token_admin.mint(&user2, &(6000 * STROOP as i128));
     token_admin.mint(&user3, &(200 * STROOP as i128));
@@ -256,26 +259,30 @@ fn refund() {
     let oracle_addr = env.register_contract(&None, mock_20::PricesMock20);
     let oracle_client = mock_20::PricesMock20Client::new(&env, &oracle_addr);
 
-    pool_client.initialize(&admin1, &token_id, &oracle_addr, &30, &(100 * STROOP as i128), &3);
+    pool_client.initialize(
+        &admin1,
+        &token_id,
+        &oracle_addr,
+        &30,
+        &(100 * STROOP as i128),
+        &3,
+    );
 
     pool_client.deposit(&user1, &(1000 * STROOP as i128));
     pool_client.deposit(&user2, &(500 * STROOP as i128));
 
-    env.ledger().with_mut(|ledger| {
-        ledger.sequence_number += 200
-    });
+    env.ledger()
+        .with_mut(|ledger| ledger.sequence_number += 200);
 
     pool_client.subscribe(&user3, &(200 * STROOP as i128));
-    env.ledger().with_mut(|ledger| {
-        ledger.sequence_number += 200
-    });
+    env.ledger()
+        .with_mut(|ledger| ledger.sequence_number += 200);
 
     assert_eq!(pool_client.fpsu(), 1333333);
     assert_eq!(pool_client.read_current_period(), 1);
 
-    env.ledger().with_mut(|ledger| {
-        ledger.sequence_number += 5 * DAY_IN_LEDGERS
-    });
+    env.ledger()
+        .with_mut(|ledger| ledger.sequence_number += 5 * DAY_IN_LEDGERS);
 
     oracle_client.change_price(&(121 * STROOP as i128));
     pool_client.claim_reward(&user3);

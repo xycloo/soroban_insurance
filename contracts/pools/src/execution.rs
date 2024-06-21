@@ -2,7 +2,7 @@ use soroban_sdk::Env;
 
 use crate::storage::{get_genesis, get_periods};
 
-// ledgers before the current period ends 
+// ledgers before the current period ends
 pub(crate) fn find_x(env: &Env, current_period: i32) -> i32 {
     // current day - (genesis + [(current_period - 1) * days_in_periods])
     let genesis = get_genesis(env);

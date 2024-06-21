@@ -1,6 +1,4 @@
-use crate::{
-    storage::get_token_id,
-};
+use crate::storage::get_token_id;
 use soroban_sdk::{token, Address, Env};
 
 pub(crate) fn transfer(e: &Env, client: &token::Client, to: &Address, amount: &i128) {

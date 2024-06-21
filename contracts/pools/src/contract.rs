@@ -1,5 +1,14 @@
 use crate::{
-    balance::{burn_shares, get_withdrawable_amount, mint_shares}, checks::check_amount_gt_0, events, math::{actual_period, calculate_principal_value, calculate_refund, find_x}, reflector, rewards::{pay_matured, update_fee_per_share_universal, update_rewards}, storage::*, token_utility::{get_token_client, transfer, transfer_in_pool}, types::{BalanceObject, Error, InstanceDataKey, PersistentDataKey}, DAY_IN_LEDGERS
+    balance::{burn_shares, get_withdrawable_amount, mint_shares},
+    checks::check_amount_gt_0,
+    events,
+    math::{actual_period, calculate_principal_value, calculate_refund, find_x},
+    reflector,
+    rewards::{pay_matured, update_fee_per_share_universal, update_rewards},
+    storage::*,
+    token_utility::{get_token_client, transfer, transfer_in_pool},
+    types::{BalanceObject, Error, InstanceDataKey, PersistentDataKey},
+    DAY_IN_LEDGERS,
 };
 use soroban_sdk::{contract, contractimpl, symbol_short, Address, BytesN, Env};
 
@@ -7,15 +16,12 @@ use soroban_sdk::{contract, contractimpl, symbol_short, Address, BytesN, Env};
 pub struct Pool;
 
 pub trait SubscribeInsurance {
-    
     fn subscribe(e: Env, initiator: Address, amount: i128) -> Result<(), Error>;
 
     fn claim_reward(env: Env, claimant: Address) -> Result<(), Error>;
-
 }
 
 pub trait Vault {
-   
     /// `deposit()` must be provided with:
     /// `from: Address` Address of the liquidity provider.
     /// `amount: i128` Amount of `token_id` that `from` wants to deposit in the pool.
@@ -55,7 +61,7 @@ pub trait Vault {
     /// Returns the amount of matured fees for an address.
     fn matured(env: Env, addr: Address, period: i32) -> i128;
 
-    fn withdrawable_amount(env: Env, addr: Address, period: i32) -> i128 ;
+    fn withdrawable_amount(env: Env, addr: Address, period: i32) -> i128;
 }
 
 pub trait Initializable {
@@ -67,13 +73,25 @@ pub trait Initializable {
     /// `token_id: Address` The token used to manage liquidity in the pool (to subsribe insurances, pay premiums etc), and can be different from the asset pair tracked
     /// 'volatility': the amount the asset has to move (+/-) with respect to the base to pay out premiums
     /// 'multiplier': insurance premiums are calculated with the following formula: premium = amount + (amount * multiplier / time_until_end_of_period); the greater the multiplier, the higher the premium  
-    fn initialize(env: Env, admin: Address, token: Address, oracle: Address, periods_in_days: i32, volatility: i128, multiplier: i32) -> Result<(), Error>;
+    fn initialize(
+        env: Env,
+        admin: Address,
+        token: Address,
+        oracle: Address,
+        periods_in_days: i32,
+        volatility: i128,
+        multiplier: i32,
+    ) -> Result<(), Error>;
 }
 
 #[contractimpl]
 impl Pool {
-    pub fn glob(e: Env ) -> (i128, i128, i128) {
-        (read_refund_global(&e, actual_period(&e)), get_tot_liquidity(&e, actual_period(&e)), get_fee_per_share_universal(&e, actual_period(&e)))
+    pub fn glob(e: Env) -> (i128, i128, i128) {
+        (
+            read_refund_global(&e, actual_period(&e)),
+            get_tot_liquidity(&e, actual_period(&e)),
+            get_fee_per_share_universal(&e, actual_period(&e)),
+        )
     }
 
     pub fn fpsu(e: Env) -> i128 {
@@ -85,7 +103,10 @@ impl Pool {
     }
 
     pub fn update(env: Env, hash: BytesN<32>) {
-        env.storage().persistent().get::<InstanceDataKey, Address>(&InstanceDataKey::Admin).unwrap();
+        env.storage()
+            .persistent()
+            .get::<InstanceDataKey, Address>(&InstanceDataKey::Admin)
+            .unwrap();
 
         env.deployer().update_current_contract_wasm(hash);
     }
@@ -93,18 +114,32 @@ impl Pool {
 
 #[contractimpl]
 impl Initializable for Pool {
-    fn initialize(env: Env, admin: Address, token: Address, oracle: Address, periods_in_days: i32, volatility: i128, multiplier: i32) -> Result<(), Error> {
-        if has_token_id(&env) {
-            return Err(Error::AlreadyInitialized);
-        }
-
-        if has_oracle(&env) {
-            return Err(Error::AlreadyInitialized);
+    fn initialize(
+        env: Env,
+        admin: Address,
+        token: Address,
+        oracle: Address,
+        periods_in_days: i32,
+        volatility: i128,
+        multiplier: i32,
+    ) -> Result<(), Error> {
+        if let Some(admin) = env
+            .storage()
+            .instance()
+            .get::<InstanceDataKey, Address>(&InstanceDataKey::Admin)
+        {
+            admin.require_auth()
+        } else {
+            if has_token_id(&env) {
+                return Err(Error::AlreadyInitialized);
+            }
         }
 
         let periods_in_ledgers = periods_in_days * DAY_IN_LEDGERS as i32;
 
-        env.storage().persistent().set(&InstanceDataKey::Admin, &admin);
+        env.storage()
+            .persistent()
+            .set(&InstanceDataKey::Admin, &admin);
 
         put_oracle_id(&env, oracle);
         put_token_id(&env, token);
@@ -169,11 +204,10 @@ impl Vault for Pool {
     }
 
     // withdraw the principal you had in a certain period
-    // 1) can only be done after the period 
+    // 1) can only be done after the period
     // 2) it's separated from the rewards
     // 3) can be less than what you deposited if the pool had some losses
     fn withdraw(env: Env, addr: Address, period: i32) -> Result<(), Error> {
-
         // enforce that you can't withdraw the principal for the current period
         let current_period = actual_period(&env);
         if period >= current_period {
@@ -185,7 +219,7 @@ impl Vault for Pool {
         if addr_balance == 0 {
             return Err(Error::NoBalance);
         }
-        
+
         // require lender auth for withdrawal
         addr.require_auth();
 
@@ -231,11 +265,11 @@ impl SubscribeInsurance for Pool {
         if has_refund_particular(&e, initiator.clone(), current_period) {
             return Err(Error::AlreadySubscribed);
         }
-        
+
         initiator.require_auth();
-        
+
         let multiplier = get_multiplier(&e);
-        
+
         let tot_liquidity = get_tot_liquidity(&e, current_period);
         let refund_global = read_refund_global(&e, current_period);
 
@@ -243,50 +277,74 @@ impl SubscribeInsurance for Pool {
         let time_to_end = find_x(&e, current_period);
         // calculated as y = amount * (1 + (1 / (q * time_to_end)))
         // the greater q, the greater the differential in refund prize if enter later
-        let possible_amount_to_refund = calculate_refund(time_to_end as i128, amount, multiplier as i128);
-        
+        let possible_amount_to_refund =
+            calculate_refund(time_to_end as i128, amount, multiplier as i128);
+
         if refund_global + possible_amount_to_refund > tot_liquidity {
             return Err(Error::NotEnoughLiquidity);
         }
-        
+
         transfer_in_pool(&e, &get_token_client(&e), &initiator, &amount);
-        
+
         update_fee_per_share_universal(&e, amount, current_period);
-        
-        let reflector_price: i128 = reflector::Client::new(&e, &get_oracle_id(&e)?).lastprice(&reflector::Asset::Other(symbol_short!("UNI"))).ok_or(Error::NoPrice)?.price;
-        
-        write_refund_particular(&e, initiator, possible_amount_to_refund, reflector_price, current_period);
-        write_refund_global(&e, refund_global + possible_amount_to_refund, current_period);
-        
-       // bump_instance(&e);
-        
+
+        let reflector_price: i128 = reflector::Client::new(&e, &get_oracle_id(&e)?)
+            .lastprice(&reflector::Asset::Other(symbol_short!("UNI")))
+            .ok_or(Error::NoPrice)?
+            .price;
+
+        write_refund_particular(
+            &e,
+            initiator,
+            possible_amount_to_refund,
+            reflector_price,
+            current_period,
+        );
+        write_refund_global(
+            &e,
+            refund_global + possible_amount_to_refund,
+            current_period,
+        );
+
+        // bump_instance(&e);
+
         Ok(())
     }
 
-    // can only claim suring the period you subscribed the insurance 
+    // can only claim suring the period you subscribed the insurance
     fn claim_reward(e: Env, claimant: Address) -> Result<(), Error> {
         let current_period = actual_period(&e);
-        
+
         // check if you had an available possible refund in the current period
-        let refund = read_refund_particular(&e, claimant.clone(), current_period).ok_or(Error::NoInsurance)?;
-        let reflector_price = reflector::Client::new(&e, &get_oracle_id(&e)?).lastprice(&reflector::Asset::Other(symbol_short!("UNI"))).ok_or(Error::NoPrice)?.price;
+        let refund = read_refund_particular(&e, claimant.clone(), current_period)
+            .ok_or(Error::NoInsurance)?;
+        let reflector_price = reflector::Client::new(&e, &get_oracle_id(&e)?)
+            .lastprice(&reflector::Asset::Other(symbol_short!("UNI")))
+            .ok_or(Error::NoPrice)?
+            .price;
         let volatility = get_volatility(&e)?;
 
-        if refund.price + volatility < reflector_price || refund.price - volatility > reflector_price {
+        if refund.price + volatility < reflector_price
+            || refund.price - volatility > reflector_price
+        {
             transfer(&e, &get_token_client(&e), &claimant, &refund.amount);
             let tot_liquidity = get_tot_liquidity(&e, current_period);
             let refund_global = read_refund_global(&e, current_period);
 
             write_refund_global(&e, refund_global - refund.amount, current_period);
             put_tot_liquidity(&e, tot_liquidity - refund.amount, current_period);
-            e.storage().persistent().remove(&PersistentDataKey::RefundParticular(BalanceObject::new(claimant, current_period)))
+            e.storage()
+                .persistent()
+                .remove(&PersistentDataKey::RefundParticular(BalanceObject::new(
+                    claimant,
+                    current_period,
+                )))
         } else {
-            return Err(Error::UnmetCondition)
+            return Err(Error::UnmetCondition);
         }
 
         bump_instance(&e);
 
         Ok(())
     }
-
 }

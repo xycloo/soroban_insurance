@@ -4,22 +4,19 @@ use soroban_sdk::{contracterror, contracttype, Address};
 #[contracttype]
 pub struct BalanceObject {
     address: Address,
-    period: i32
+    period: i32,
 }
 
 #[derive(Clone)]
 #[contracttype]
 pub struct Insurance {
     pub amount: i128,
-    pub price: i128
+    pub price: i128,
 }
 
 impl BalanceObject {
     pub fn new(address: Address, period: i32) -> Self {
-        Self { 
-            address, 
-            period 
-        }
+        Self { address, period }
     }
 }
 
@@ -32,7 +29,7 @@ pub enum InstanceDataKey {
     Oracle,
     Volatility,
     Admin,
-    Multiplier
+    Multiplier,
 }
 
 #[derive(Clone)]
@@ -46,7 +43,7 @@ pub enum PersistentDataKey {
     FeePerShareParticular(BalanceObject),
     MaturedFeesParticular(BalanceObject),
     RefundParticular(BalanceObject),
-    RefundGlobal(i32)
+    RefundGlobal(i32),
 }
 
 #[contracterror]
@@ -65,5 +62,5 @@ pub enum Error {
     NoInsurance = 9,
     NoPrice = 10,
     AlreadySubscribed = 11,
-    UnmetCondition = 12
+    UnmetCondition = 12,
 }

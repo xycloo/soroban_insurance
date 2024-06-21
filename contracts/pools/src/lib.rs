@@ -8,6 +8,7 @@ mod reflector {
 use fixed_point_math::FixedPoint;
 
 mod balance;
+mod checks;
 pub mod contract;
 mod events;
 mod execution;
@@ -16,7 +17,6 @@ mod rewards;
 mod storage;
 mod token_utility;
 mod types;
-mod checks;
 
 pub fn compute_fee(amount: &i128) -> i128 {
     amount.fixed_div_ceil(1250_0000000, 10_000_000).unwrap() // 0.08%, still TBD

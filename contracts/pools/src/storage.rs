@@ -1,15 +1,19 @@
 use soroban_sdk::{Address, Env};
 
 use crate::{
-    types::{BalanceObject, Error, InstanceDataKey, Insurance, PersistentDataKey}, INSTANCE_LEDGER_LIFE, INSTANCE_LEDGER_TTL_THRESHOLD, PERSISTENT_LEDGER_LIFE, PERSISTENT_LEDGER_TTL_THRESHOLD
+    types::{BalanceObject, Error, InstanceDataKey, Insurance, PersistentDataKey},
+    INSTANCE_LEDGER_LIFE, INSTANCE_LEDGER_TTL_THRESHOLD, PERSISTENT_LEDGER_LIFE,
+    PERSISTENT_LEDGER_TTL_THRESHOLD,
 };
 
 // persistent
 
 pub(crate) fn bump_persistent(e: &Env, key: &PersistentDataKey) {
-    e.storage()
-        .persistent()
-        .extend_ttl(key, PERSISTENT_LEDGER_TTL_THRESHOLD, PERSISTENT_LEDGER_LIFE);
+    e.storage().persistent().extend_ttl(
+        key,
+        PERSISTENT_LEDGER_TTL_THRESHOLD,
+        PERSISTENT_LEDGER_LIFE,
+    );
 }
 
 pub(crate) fn write_balance(e: &Env, addr: Address, balance: i128, period: i32) {
@@ -69,27 +73,32 @@ pub(crate) fn read_matured_fees_particular(e: &Env, addr: Address, period: i32) 
     }
 }
 
-pub(crate) fn write_refund_particular(e: &Env, addr: Address, amount: i128, price: i128, period: i32) {
+pub(crate) fn write_refund_particular(
+    e: &Env,
+    addr: Address,
+    amount: i128,
+    price: i128,
+    period: i32,
+) {
     let balance_object = BalanceObject::new(addr, period);
     let key = PersistentDataKey::RefundParticular(balance_object);
-    e.storage().persistent().set(&key, &Insurance {
-        amount,
-        price
-    });
+    e.storage()
+        .persistent()
+        .set(&key, &Insurance { amount, price });
     bump_persistent(e, &key);
 }
 
 pub(crate) fn read_refund_particular(e: &Env, addr: Address, period: i32) -> Option<Insurance> {
     let balance_object = BalanceObject::new(addr, period);
     let key = PersistentDataKey::RefundParticular(balance_object);
-    
+
     e.storage().persistent().get(&key)
 }
 
 pub(crate) fn has_refund_particular(e: &Env, addr: Address, period: i32) -> bool {
     let balance_object = BalanceObject::new(addr, period);
     let key = PersistentDataKey::RefundParticular(balance_object);
-    
+
     e.storage().persistent().has(&key)
 }
 
@@ -138,25 +147,25 @@ pub(crate) fn put_fee_per_share_universal(e: &Env, last_recorded: i128, period: 
     bump_persistent(e, &key);
 }
 
-pub(crate) fn get_fee_per_share_universal(e: &Env, period: i32) -> i128 {               
+pub(crate) fn get_fee_per_share_universal(e: &Env, period: i32) -> i128 {
     let key = PersistentDataKey::FeePerShareUniversal(period);
     e.storage().persistent().get(&key).unwrap_or(0)
 }
 
 // instance
 
-pub(crate) fn bump_instance(env: &Env) {                                                    
+pub(crate) fn bump_instance(env: &Env) {
     env.storage()
         .instance()
         .extend_ttl(INSTANCE_LEDGER_TTL_THRESHOLD, INSTANCE_LEDGER_LIFE);
 }
 
-pub(crate) fn has_token_id(e: &Env) -> bool {    
+pub(crate) fn has_token_id(e: &Env) -> bool {
     let key = InstanceDataKey::TokenId;
     e.storage().instance().has(&key)
 }
 
-pub(crate) fn put_token_id(e: &Env, token_id: Address) {   
+pub(crate) fn put_token_id(e: &Env, token_id: Address) {
     let key = InstanceDataKey::TokenId;
     e.storage().instance().set(&key, &token_id);
 }
@@ -171,12 +180,12 @@ pub(crate) fn get_token_id(e: &Env) -> Result<Address, Error> {
     }
 }
 
-pub(crate) fn has_oracle(e: &Env) -> bool {     
+pub(crate) fn has_oracle(e: &Env) -> bool {
     let key = InstanceDataKey::Oracle;
     e.storage().instance().has(&key)
 }
 
-pub(crate) fn put_oracle_id(e: &Env, oracle: Address) {      
+pub(crate) fn put_oracle_id(e: &Env, oracle: Address) {
     let key = InstanceDataKey::Oracle;
     e.storage().instance().set(&key, &oracle);
 }
@@ -191,8 +200,7 @@ pub(crate) fn get_oracle_id(e: &Env) -> Result<Address, Error> {
     }
 }
 
-
-pub(crate) fn put_volatility(e: &Env, amount: i128) {    
+pub(crate) fn put_volatility(e: &Env, amount: i128) {
     let key = InstanceDataKey::Volatility;
     e.storage().instance().set(&key, &amount);
 }
@@ -207,38 +215,39 @@ pub(crate) fn get_volatility(e: &Env) -> Result<i128, Error> {
     }
 }
 
-pub(crate) fn write_genesis(e: &Env) {                            
+pub(crate) fn write_genesis(e: &Env) {
     let key = InstanceDataKey::GenesisPeriod;
     let current_ledger = e.ledger().sequence() as i32;
     e.storage().instance().set(&key, &current_ledger);
 }
 
-pub(crate) fn get_genesis(e: &Env) -> i32 {                             // used
+pub(crate) fn get_genesis(e: &Env) -> i32 {
+    // used
     let key = InstanceDataKey::GenesisPeriod;
     let genesis = e.storage().instance().get(&key).unwrap();
     genesis
 }
 
 // writes and gives the time-span of a single period of insurance, set at beginning (ex: 30d)
-pub(crate) fn write_periods(e: &Env, periods_in_ledgers: i32) {            // used
+pub(crate) fn write_periods(e: &Env, periods_in_ledgers: i32) {
+    // used
     let key = InstanceDataKey::Periods;
     e.storage().instance().set(&key, &periods_in_ledgers);
 }
 
-pub(crate) fn get_periods(e: &Env) -> i32 {                      
+pub(crate) fn get_periods(e: &Env) -> i32 {
     let key = InstanceDataKey::Periods;
     let periods: i32 = e.storage().instance().get(&key).unwrap();
     periods
 }
 
-pub(crate) fn put_multiplier(e: &Env, multiplier: i32) {                       
+pub(crate) fn put_multiplier(e: &Env, multiplier: i32) {
     let key = InstanceDataKey::Multiplier;
     e.storage().instance().set(&key, &multiplier);
 }
 
-pub(crate) fn get_multiplier(e: &Env) -> i32 {                       
+pub(crate) fn get_multiplier(e: &Env) -> i32 {
     let key = InstanceDataKey::Multiplier;
     let multiplier: i32 = e.storage().instance().get(&key).unwrap();
     multiplier
 }
-
