@@ -53,6 +53,23 @@ pub struct PriceData {
 extern crate std;
 // NOTE: needs more coverage in the future.
 
+#[test]
+fn reinitialize() {
+    let env = Env::default();
+
+    env.mock_all_auths();
+    env.budget().reset_unlimited();
+
+    let admin1 = Address::generate(&env);
+    let token_id = env.register_stellar_asset_contract(admin1.clone());
+    let pool_addr = env.register_contract(&None, Pool);
+    let pool_client = PoolClient::new(&env, &pool_addr);
+    let oracle_addr = env.register_contract(&None, mock_20::PricesMock20);
+
+    pool_client.initialize(&admin1, &token_id, &oracle_addr, &30, &1000000000, &3);
+    pool_client.initialize(&admin1, &token_id, &oracle_addr, &30, &1000000002, &3);
+}
+
 #[should_panic(expected = "HostError: Error(Contract, #6)")]
 #[test]
 fn deposit_withdraw() {

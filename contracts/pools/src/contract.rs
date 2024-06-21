@@ -104,7 +104,7 @@ impl Pool {
 
     pub fn update(env: Env, hash: BytesN<32>) {
         env.storage()
-            .persistent()
+            .instance()
             .get::<InstanceDataKey, Address>(&InstanceDataKey::Admin)
             .unwrap();
 
@@ -138,7 +138,7 @@ impl Initializable for Pool {
         let periods_in_ledgers = periods_in_days * DAY_IN_LEDGERS as i32;
 
         env.storage()
-            .persistent()
+            .instance()
             .set(&InstanceDataKey::Admin, &admin);
 
         put_oracle_id(&env, oracle);
