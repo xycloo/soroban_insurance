@@ -295,7 +295,7 @@ impl SubscribeInsurance for Pool {
 
         write_refund_particular(
             &e,
-            initiator,
+            initiator.clone(),
             possible_amount_to_refund,
             reflector_price,
             current_period,
@@ -308,6 +308,7 @@ impl SubscribeInsurance for Pool {
 
         // bump_instance(&e);
 
+        events::policy_purchase(&e, initiator, amount, current_period);
         Ok(())
     }
 
@@ -336,7 +337,7 @@ impl SubscribeInsurance for Pool {
             e.storage()
                 .persistent()
                 .remove(&PersistentDataKey::RefundParticular(BalanceObject::new(
-                    claimant,
+                    claimant.clone(),
                     current_period,
                 )))
         } else {
@@ -345,6 +346,7 @@ impl SubscribeInsurance for Pool {
 
         bump_instance(&e);
 
+        events::befenit_payout(&e, claimant, refund.amount, current_period);
         Ok(())
     }
 }
