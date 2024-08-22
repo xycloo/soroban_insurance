@@ -7,7 +7,7 @@ pub struct BalanceObject {
     period: i32,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[contracttype]
 pub struct Insurance {
     pub amount: i128,
@@ -27,6 +27,9 @@ pub enum InstanceDataKey {
     GenesisPeriod,
     Periods,
     Oracle,
+    Symbol,
+    External,
+    OracleAsset,
     Volatility,
     Admin,
     Multiplier,

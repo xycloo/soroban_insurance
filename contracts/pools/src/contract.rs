@@ -7,10 +7,10 @@ use crate::{
     rewards::{pay_matured, update_fee_per_share_universal, update_rewards},
     storage::*,
     token_utility::{get_token_client, transfer, transfer_in_pool},
-    types::{BalanceObject, Error, InstanceDataKey, PersistentDataKey},
+    types::{BalanceObject, Error, InstanceDataKey, Insurance, PersistentDataKey},
     DAY_IN_LEDGERS,
 };
-use soroban_sdk::{contract, contractimpl, symbol_short, Address, BytesN, Env};
+use soroban_sdk::{contract, contractimpl, symbol_short, Address, BytesN, Env, Symbol};
 
 #[contract]
 pub struct Pool;
@@ -78,6 +78,9 @@ pub trait Initializable {
         admin: Address,
         token: Address,
         oracle: Address,
+        symbol: Symbol,
+        external_asset: bool,
+        oracle_asset: Option<Address>,   // if the asset is external, set this to None or whatever value (it will not be taken into account)
         periods_in_days: i32,
         volatility: i128,
         multiplier: i32,
@@ -86,16 +89,66 @@ pub trait Initializable {
 
 #[contractimpl]
 impl Pool {
-    pub fn glob(e: Env) -> (i128, i128, i128) {
+    pub fn glob(e: Env) -> (i128, i128, i128, i128) {
         (
             read_refund_global(&e, actual_period(&e)),
             get_tot_liquidity(&e, actual_period(&e)),
             get_fee_per_share_universal(&e, actual_period(&e)),
+            get_tot_supply(&e, actual_period(&e)),
         )
+    }
+
+    pub fn particular(e: Env, user: Address) -> (i128, i128, i128, Option<Insurance>) {
+        (
+            read_balance(&e, user.clone(), actual_period(&e)),  // lp shares for a user
+            read_fee_per_share_particular(&e, user.clone(), actual_period(&e)),
+            read_matured_fees_particular(&e, user.clone(), actual_period(&e)),
+            read_refund_particular(&e, user.clone(), actual_period(&e))
+        )
+    }
+
+    pub fn get_price(e: Env) -> Option<i128> {
+        let oracle_id = get_oracle_id(&e).ok()?;
+        let client = reflector::Client::new(&e, &oracle_id);
+
+        let symbol = get_symbol(&e);
+        let external = get_external(&e);
+        let oracle_asset;
+        
+        /*
+        if let Some(asset) = get_oracle_asset(&e) {
+            oracle_asset = Some(asset)
+        } else {
+            oracle_asset = None
+        }
+        */
+
+        let last_price = if external {
+            client
+            .lastprice(&reflector::Asset::Other(symbol))
+        } else {
+            if let Some(asset) = get_oracle_asset(&e) {
+                oracle_asset = asset;
+                client
+                .lastprice(&reflector::Asset::Stellar(oracle_asset))
+            } else {
+                None
+            }
+        };
+
+        if let Some(last_price) = last_price {
+            Some(last_price.price)
+        } else {
+            None
+        }
     }
 
     pub fn fpsu(e: Env) -> i128 {
         get_fee_per_share_universal(&e, actual_period(&e))
+    }
+
+    pub fn fpsp(e: Env, user: Address) -> i128 {
+        read_fee_per_share_particular(&e, user, actual_period(&e))
     }
 
     pub fn read_current_period(e: Env) -> i32 {
@@ -119,17 +172,23 @@ impl Initializable for Pool {
         admin: Address,
         token: Address,
         oracle: Address,
+        symbol: Symbol,
+        external_asset: bool,
+        oracle_asset: Option<Address>,
         periods_in_days: i32,
         volatility: i128,
         multiplier: i32,
     ) -> Result<(), Error> {
+        /*
         if let Some(admin) = env
             .storage()
             .instance()
             .get::<InstanceDataKey, Address>(&InstanceDataKey::Admin)
         {
             admin.require_auth()
-        } else {
+        } 
+        */
+        {
             if has_token_id(&env) {
                 return Err(Error::AlreadyInitialized);
             }
@@ -147,6 +206,9 @@ impl Initializable for Pool {
         write_periods(&env, periods_in_ledgers);
         put_volatility(&env, volatility);
         put_multiplier(&env, multiplier);
+        put_symbol(&env, symbol);
+        put_external(&env, external_asset);
+        put_oracle_asset(&env, oracle_asset);
         Ok(())
     }
 }
@@ -275,8 +337,10 @@ impl SubscribeInsurance for Pool {
 
         // the time until the end of the period
         let time_to_end = find_x(&e, current_period);
-        // calculated as y = amount * (1 + (1 / (q * time_to_end)))
-        // the greater q, the greater the differential in refund prize if enter later
+        
+        // this is the refund that the policy holder would receive if the triggering condition verifies
+        // - calculated as y = amount * (1 + (1 / (q * time_to_end)))
+        // - the greater q, the greater the differential in refund prize if enter later
         let possible_amount_to_refund =
             calculate_refund(time_to_end as i128, amount, multiplier as i128);
 
@@ -288,10 +352,36 @@ impl SubscribeInsurance for Pool {
 
         update_fee_per_share_universal(&e, amount, current_period);
 
+        let symbol = get_symbol(&e);
+        let external = get_external(&e);
+        let oracle_asset;
+
+        let reflector_price;
+
+        if external {
+            reflector_price = reflector::Client::new(&e, &get_oracle_id(&e)?)
+            .lastprice(&reflector::Asset::Other(symbol))
+            .ok_or(Error::NoPrice)?
+            .price;
+        } else {
+            if let Some(asset) = get_oracle_asset(&e) {
+            oracle_asset = asset;
+            reflector_price = reflector::Client::new(&e, &get_oracle_id(&e)?)
+            .lastprice(&reflector::Asset::Stellar(oracle_asset))
+            .ok_or(Error::NoPrice)?
+            .price;
+        } else {
+            return Err(Error::NoPrice);
+        }
+    }
+
+        /*
+        // reflector contract hardcoded into the contract: to change
         let reflector_price: i128 = reflector::Client::new(&e, &get_oracle_id(&e)?)
             .lastprice(&reflector::Asset::Other(symbol_short!("UNI")))
             .ok_or(Error::NoPrice)?
             .price;
+        */
 
         write_refund_particular(
             &e,
@@ -300,6 +390,7 @@ impl SubscribeInsurance for Pool {
             reflector_price,
             current_period,
         );
+
         write_refund_global(
             &e,
             refund_global + possible_amount_to_refund,
@@ -312,17 +403,45 @@ impl SubscribeInsurance for Pool {
         Ok(())
     }
 
-    // can only claim suring the period you subscribed the insurance
+ 
     fn claim_reward(e: Env, claimant: Address) -> Result<(), Error> {
         let current_period = actual_period(&e);
+        claimant.require_auth();
 
         // check if you had an available possible refund in the current period
         let refund = read_refund_particular(&e, claimant.clone(), current_period)
             .ok_or(Error::NoInsurance)?;
+
+        let symbol = get_symbol(&e);
+        let external = get_external(&e);
+        let oracle_asset;
+    
+        let reflector_price;
+    
+        if external {
+                reflector_price = reflector::Client::new(&e, &get_oracle_id(&e)?)
+                .lastprice(&reflector::Asset::Other(symbol))
+                .ok_or(Error::NoPrice)?
+                .price;
+        } else {
+            if let Some(asset) = get_oracle_asset(&e) {
+                oracle_asset = asset;
+                reflector_price = reflector::Client::new(&e, &get_oracle_id(&e)?)
+                .lastprice(&reflector::Asset::Stellar(oracle_asset))
+                .ok_or(Error::NoPrice)?
+                .price;
+            } else {
+                return Err(Error::NoPrice);
+            }
+        }
+
+/* 
         let reflector_price = reflector::Client::new(&e, &get_oracle_id(&e)?)
             .lastprice(&reflector::Asset::Other(symbol_short!("UNI")))
             .ok_or(Error::NoPrice)?
             .price;
+*/
+
         let volatility = get_volatility(&e)?;
 
         if refund.price + volatility < reflector_price

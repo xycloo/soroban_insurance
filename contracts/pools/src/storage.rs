@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, Env};
+use soroban_sdk::{Address, Env, Symbol};
 
 use crate::{
     types::{BalanceObject, Error, InstanceDataKey, Insurance, PersistentDataKey},
@@ -250,4 +250,36 @@ pub(crate) fn get_multiplier(e: &Env) -> i32 {
     let key = InstanceDataKey::Multiplier;
     let multiplier: i32 = e.storage().instance().get(&key).unwrap();
     multiplier
+}
+
+pub(crate) fn put_external(e: &Env, external: bool) {
+    let key = InstanceDataKey::External;
+    e.storage().instance().set(&key, &external);
+}
+
+pub(crate) fn get_external(e: &Env) -> bool {
+    let key = InstanceDataKey::External;
+    let external = e.storage().instance().get(&key).unwrap();
+    external
+}
+
+pub(crate) fn put_symbol(e: &Env, symbol: Symbol) {
+    let key = InstanceDataKey::Symbol;
+    e.storage().instance().set(&key, &symbol);
+}
+
+pub(crate) fn get_symbol(e: &Env) -> Symbol {
+    let key = InstanceDataKey::Symbol;
+    let symbol = e.storage().instance().get(&key).unwrap();
+    symbol
+}
+
+pub(crate) fn put_oracle_asset(e: &Env, oracle_asset: Option<Address>) {
+    let key = InstanceDataKey::OracleAsset;
+    e.storage().instance().set(&key, &oracle_asset);
+}
+
+pub(crate) fn get_oracle_asset(e: &Env) -> Option<Address> {
+    let key = InstanceDataKey::OracleAsset;
+    e.storage().instance().get(&key)
 }

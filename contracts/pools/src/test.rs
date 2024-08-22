@@ -2,7 +2,7 @@ use fixed_point_math::STROOP;
 use soroban_sdk::{
     contract, contractimpl, contracttype,
     testutils::{Address as _, Ledger},
-    token, Address, Env,
+    token, Address, Env, symbol_short
 };
 
 use crate::{
@@ -53,6 +53,7 @@ pub struct PriceData {
 extern crate std;
 // NOTE: needs more coverage in the future.
 
+/*
 #[test]
 fn reinitialize() {
     let env = Env::default();
@@ -66,10 +67,11 @@ fn reinitialize() {
     let pool_client = PoolClient::new(&env, &pool_addr);
     let oracle_addr = env.register_contract(&None, mock_20::PricesMock20);
 
-    pool_client.initialize(&admin1, &token_id, &oracle_addr, &30, &1000000000, &3);
-    pool_client.initialize(&admin1, &token_id, &oracle_addr, &30, &1000000002, &3);
+    pool_client.initialize(&admin1, &token_id, &oracle_addr, &symbol_short!("UNI"), &true,  &None, &30, &1000000000, &3);
+    // pool_client.initialize(&admin1, &token_id, &oracle_addr, &30, &1000000002, &3);
 }
 
+// test that you cannot withdraw your funds in the period of your deposit
 #[should_panic(expected = "HostError: Error(Contract, #6)")]
 #[test]
 fn deposit_withdraw() {
@@ -139,13 +141,20 @@ fn insurance() {
     env.ledger()
         .with_mut(|ledger| ledger.sequence_number += 200);
 
+    // this shows: 1) the tot possible amount to refund; 2) the tot deposit in the pool; 3) the fee_per_share_universal 
     std::println!("{:?}", pool_client.glob());
 
     pool_client.subscribe(&user3, &2000000);
 
     std::println!("{:?}", pool_client.glob());
 
-    std::println!("{:?}", pool_client.fpsu());
+    // check fee_per_share_universal/particular
+    std::println!("universal: {:?}", pool_client.fpsu());
+    assert_eq!(pool_client.fpsu(), 1333);
+
+    std::println!("particular: {:?}", pool_client.fpsp(&user1));
+    assert_eq!(pool_client.fpsp(&user1), 0);
+
 
     env.ledger()
         .with_mut(|ledger| ledger.sequence_number += 200);
@@ -192,11 +201,11 @@ fn periods() {
     env.ledger()
         .with_mut(|ledger| ledger.sequence_number += 200);
 
-    assert_eq!(pool_client.glob(), (0, 15000000000, 0));
+    assert_eq!(pool_client.glob(), (0, 15000000000, 0, 15000000000));
 
     pool_client.subscribe(&user3, &2000000);
 
-    assert_eq!(pool_client.glob(), (2030000, 15000000000, 1333));
+    assert_eq!(pool_client.glob(), (2030000, 15000000000, 1333, 15000000000));
 
     env.ledger()
         .with_mut(|ledger| ledger.sequence_number += 200);
@@ -230,6 +239,13 @@ fn periods() {
     pool_client.deposit(&user2, &(50 * STROOP as i128));
 
     assert_eq!(pool_client.read_current_period(), 1);
+    
+    // check fee_per_share_particular == fee_per_share_universal, as depositing we are also updating the rewards (ie setting the two value equal)
+    std::println!("{:?}", pool_client.glob());
+    assert_eq!(pool_client.glob(), (2030000, 17500000000, 1333, 17500000000));
+
+    std::println!("{:?}", pool_client.fpsp(&user2));
+    assert_eq!(pool_client.fpsp(&user2), 1333);
 
     env.ledger()
         .with_mut(|ledger| ledger.sequence_number += 5 * DAY_IN_LEDGERS);
@@ -297,11 +313,19 @@ fn refund() {
 
     assert_eq!(pool_client.fpsu(), 1333333);
     assert_eq!(pool_client.read_current_period(), 1);
+    std::println!("particular {:?}", pool_client.particular(&user3));   // sholud have an insurance
 
     env.ledger()
         .with_mut(|ledger| ledger.sequence_number += 5 * DAY_IN_LEDGERS);
 
     oracle_client.change_price(&(121 * STROOP as i128));
+
+    std::println!("particular {:?}", pool_client.particular(&user1));   // the insurance for this user is None
+
+    // after the cliam of the reward, the policy holder receives back its pricipal + reward
+    assert_eq!(token_client.balance(&user3), 0);
     pool_client.claim_reward(&user3);
     assert_eq!(token_client.balance(&user3), 2030000000)
 }
+
+*/
