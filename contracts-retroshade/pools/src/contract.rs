@@ -2,7 +2,7 @@ use crate::{
     balance::{burn_shares, get_withdrawable_amount, mint_shares},
     checks::check_amount_gt_0,
     events,
-    math::{actual_period, calculate_principal_value, calculate_refund, find_x},
+    math::{actual_period, calculate_principal_value, calculate_refund, calculate_to_mint, find_x},
     reflector,
     rewards::{pay_matured, update_fee_per_share_universal, update_rewards},
     storage::*,
@@ -11,6 +11,41 @@ use crate::{
     DAY_IN_LEDGERS,
 };
 use soroban_sdk::{contract, contractimpl, symbol_short, Address, BytesN, Env, Symbol};
+
+// retroshade
+mod retroshade {
+    use retroshade_sdk::Retroshade;
+    use soroban_sdk::{contracttype, Address, Symbol};
+
+    #[derive(Retroshade)]
+    #[contracttype]
+    pub struct DepositEvent {
+        pub from: Address,
+        pub amount: i128,
+        pub ledger: u32,
+        pub period: i32,
+        pub new_shares_minted: i128,
+    }
+
+    #[derive(Retroshade)]
+    #[contracttype]
+    pub struct WithdrawMaturedEvent {
+        pub from: Address,
+        pub paid: i128,
+        pub ledger: u32,
+        pub period: i32,
+    }
+
+    #[derive(Retroshade)]
+    #[contracttype]
+    pub struct WithdrawEvent {
+        pub from: Address,
+        pub burnt_shares: i128,
+        pub amount_withdrawn: i128,
+        pub ledger: u32,
+        pub period: i32,
+    }
+}
 
 #[contract]
 pub struct Pool;
@@ -230,7 +265,26 @@ impl Vault for Pool {
         // after having calculated the right amount to mint, we van update the liquidity in the pool
         put_tot_liquidity(&env, get_tot_liquidity(&env, period) + amount, period);
 
-        events::deposited(&env, from, amount, period);
+        events::deposited(&env, from.clone(), amount, period);
+
+        // retroshade
+        let current_ledger = env.ledger().sequence();
+        let shares_to_mint = calculate_to_mint(
+            &env,
+            amount,
+            get_tot_supply(&env, period),
+            get_tot_liquidity(&env, period),
+        );
+
+        retroshade::DepositEvent {
+            from: from.clone(),
+            amount,
+            ledger: current_ledger,
+            period,
+            new_shares_minted: shares_to_mint,
+        }
+        .emit(&env);
+
         Ok(())
     }
 
@@ -243,7 +297,19 @@ impl Vault for Pool {
         // pay the matured yield
         let paid = pay_matured(&env, addr.clone(), period)?;
 
-        events::matured_withdrawn(&env, addr, paid, period);
+        events::matured_withdrawn(&env, addr.clone(), paid, period);
+
+        // retroshade
+        let current_ledger = env.ledger().sequence();
+
+        retroshade::WithdrawMaturedEvent {
+            from: addr.clone(),
+            paid,
+            ledger: current_ledger,
+            period,
+        }
+        .emit(&env);
+
         Ok(())
     }
 
@@ -251,6 +317,8 @@ impl Vault for Pool {
         bump_instance(&env);
 
         update_rewards(&env, addr, period);
+
+        // event & retroshade emitted in "update_rewards"
 
         Ok(())
     }
@@ -282,16 +350,32 @@ impl Vault for Pool {
 
         let tot_liquidity = get_tot_liquidity(&env, period);
         let tot_shares = get_tot_supply(&env, period);
+
+        // how much user's lp shares are worth
         let principal_value = calculate_principal_value(addr_balance, tot_liquidity, tot_shares);
 
         // pay out the corresponding deposit
+        // matured fees need to be withdrawn separately
         let token_client = get_token_client(&env);
         transfer(&env, &token_client, &addr, &principal_value);
 
         // burn the shares
         burn_shares(&env, addr.clone(), addr_balance, period);
 
-        events::withdrawn(&env, addr, addr_balance, period);
+        events::withdrawn(&env, addr.clone(), addr_balance, period);
+
+        // retroshade
+        let current_ledger = env.ledger().sequence();
+
+        retroshade::WithdrawEvent {
+            from: addr.clone(),
+            burnt_shares: addr_balance,
+            amount_withdrawn: principal_value,
+            ledger: current_ledger,
+            period,
+        }
+        .emit(&env);
+
         Ok(())
     }
 

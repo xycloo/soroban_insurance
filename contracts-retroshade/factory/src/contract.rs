@@ -3,7 +3,21 @@ use crate::{
     storage::{get_pool_hash, has_pool_hash, set_pool_hash},
     types::Error,
 };
-use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, Symbol};
+use retroshade_sdk::Retroshade;
+use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, Symbol};
+
+#[derive(Retroshade)]
+#[contracttype]
+pub struct DeployedLiquidityPools {
+    pub pool: Address,
+    pub pool_admin: Address,
+    pub pool_token: Address,
+    pub pool_oracle: Address,
+    pub asset_symbol: Symbol,
+    pub periods_in_days: i32,
+    pub volatility: i128,
+    pub multiplier: i32,
+}
 
 #[contract]
 pub struct Factory;
@@ -70,6 +84,19 @@ impl Interface for Factory {
         );
 
         events::deployed_pool(&env, &pool_address);
+
+        // retroshades
+        DeployedLiquidityPools {
+            pool: pool_address.clone(),
+            pool_admin: admin.clone(),
+            pool_token: token.clone(),
+            pool_oracle: oracle.clone(),
+            asset_symbol: symbol.clone(),
+            periods_in_days: periods_in_days.clone(),
+            volatility: volatility.clone(),
+            multiplier: multiplier.clone(),
+        }
+        .emit(&env);
 
         Ok(pool_address)
     }
