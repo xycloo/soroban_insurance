@@ -8,10 +8,11 @@ use crate::{
 use core::ops::AddAssign;
 use soroban_sdk::{Address, Env};
 
-// retroshade
+// ---------------- Retroshades (only when --features mercury) ----------------
+#[cfg(feature = "mercury")]
 mod retroshade {
-    use retroshade_sdk::Retroshade;
-    use soroban_sdk::{contracttype, Address, Symbol};
+    use retroshade_sdk::Retroshade; // crate retroshade-sdk -> module retroshade_sdk
+    use soroban_sdk::{contracttype, Address};
 
     #[derive(Retroshade)]
     #[contracttype]
@@ -22,6 +23,7 @@ mod retroshade {
         pub period: i32,
     }
 }
+// ---------------------------------------------------------------------------
 
 pub(crate) fn update_rewards(e: &Env, addr: Address, period: i32) {
     let fee_per_share_universal = get_fee_per_share_universal(&e, period);
@@ -40,16 +42,21 @@ pub(crate) fn update_rewards(e: &Env, addr: Address, period: i32) {
 
     events::new_fees(e, addr.clone(), lender_fees, period);
 
-    // retroshade
-    let current_ledger = e.ledger().sequence();
+    // ---- Retroshades emit (only when --features mercury) -------------------
+    #[cfg(feature = "mercury")]
+    {
+        use crate::retroshade::UpdateRewardsEvent;
+        let current_ledger: u32 = e.ledger().sequence();
 
-    retroshade::UpdateRewardsEvent {
-        from: addr.clone(),
-        fees: lender_fees,
-        ledger: current_ledger,
-        period,
+        UpdateRewardsEvent {
+            from: addr.clone(),
+            fees: lender_fees,
+            ledger: current_ledger,
+            period,
+        }
+        .emit(&e);
     }
-    .emit(&e);
+    // -----------------------------------------------------------------------
 }
 
 pub(crate) fn update_fee_per_share_universal(e: &Env, collected: i128, period: i32) {

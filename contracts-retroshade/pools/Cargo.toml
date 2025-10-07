@@ -9,8 +9,11 @@ crate-type = ["cdylib"]
 [dependencies]
 soroban-sdk = { workspace = true }
 fixed-point-math = { workspace = true }
-retroshade-sdk = { version = "0.1.0", workspace = true }
+retroshade-sdk = { version = "0.1.0", workspace = true, optional = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
 fixed-point-math = { workspace = true }
+
+[features]
+mercury = ["dep:retroshade-sdk"]

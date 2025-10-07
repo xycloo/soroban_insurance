@@ -7,7 +7,7 @@ pub(crate) fn deposited(env: &Env, from: Address, amount: i128, period: i32) {
 
 pub(crate) fn matured_withdrawn(env: &Env, addr: Address, withdrawn: i128, period: i32) {
     let topics = (symbol_short!("collect"), addr, period);
-    env.events().publish(topics, withdrawn);
+    env.events().publish(topics, withdrawn); 
 }
 
 pub(crate) fn new_fees(env: &Env, addr: Address, matured: i128, period: i32) {
