@@ -47,6 +47,30 @@ mod retroshade {
         pub ledger: u32,
         pub period: i32,
     }
+
+    #[derive(Retroshade)]
+    #[contracttype]
+    pub struct SubscribeEvent {
+        pub initiator: Address,
+        pub premium_paid: i128,
+        pub possible_refund: i128,
+        pub global_refund: i128,
+        pub ledger: u32,
+        pub period: i32,
+    }
+
+    #[derive(Retroshade)]
+    #[contracttype]
+    pub struct ClaimEvent {
+        pub claimant: Address,
+        pub refund: i128,
+        pub open_price: i128,
+        pub refund_price: i128,
+        pub total_liquidity: i128,
+        pub refund_global: i128,
+        pub ledger: u32,
+        pub period: i32,
+    }
 }
 // -------------------------------------------------------------------------------
 
@@ -251,7 +275,7 @@ impl Vault for Pool {
     fn update_fee_rewards(env: Env, addr: Address, period: i32) -> Result<(), Error> {
         bump_instance(&env);
         update_rewards(&env, addr, period);
-        // (Your events & retroshades for rewards are handled inside update_rewards, per your comment.)
+        // (Your events & retroshades for rewards are handled inside update_rewards)
         Ok(())
     }
 
@@ -367,6 +391,23 @@ impl SubscribeInsurance for Pool {
         write_refund_global(&e, refund_global + possible_amount_to_refund, current_period);
 
         events::policy_purchase(&e, initiator, amount, current_period);
+
+        #[cfg(feature = "mercury")]
+        {
+            use crate::retroshade::SubscribeEvent;
+            let current_ledger: u32 = env.ledger().sequence();
+
+            SubscribeEvent {
+                initiator: initiator.clone(),
+                premium_paid: amount,
+                possible_refund: possible_amount_to_refund,
+                global_refund: refund_global + possible_amount_to_refund,
+                ledger: current_ledger,
+                period: current_period,
+            }
+            .emit(&env);
+        }
+
         Ok(())
     }
 
@@ -415,6 +456,25 @@ impl SubscribeInsurance for Pool {
 
         bump_instance(&e);
         events::befenit_payout(&e, claimant, refund.amount, current_period);
+        
+        #[cfg(feature = "mercury")]
+        {
+            use crate::retroshade::ClaimEvent;
+            let current_ledger: u32 = env.ledger().sequence();
+
+            ClaimEvent {
+                claimant: claimant,
+                refund: refund,
+                open_price: refund.price,
+                refund_price: reflector_price,
+                total_liquidity: tot_liquidity - refund.amount,
+                refund_global: refund_global - refund.amount,
+                ledger: current_ledger,
+                pediod: current_period,
+            }
+            .emit(&env);
+        }
+
         Ok(())
     }
 }
