@@ -9,7 +9,7 @@ use crate::{
     storage::*,
     token_utility::{get_token_client, transfer, transfer_in_pool},
     types::{BalanceObject, Error, InstanceDataKey, Insurance, PersistentDataKey},
-    DAY_IN_LEDGERS,
+    MIN_IN_LEDGERS,
 };
 use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, Symbol};
 
@@ -77,7 +77,7 @@ pub trait Initializable {
         symbol: Symbol,
         external_asset: bool,
         oracle_asset: Option<Address>,
-        periods_in_days: i32,
+        periods_in_min: i32,
         volatility: i128,
         multiplier: i32,
     ) -> Result<(), Error>;
@@ -156,7 +156,7 @@ impl Initializable for Pool {
         symbol: Symbol,
         external_asset: bool,
         oracle_asset: Option<Address>,
-        periods_in_days: i32,
+        periods_in_min: i32,
         volatility: i128,
         multiplier: i32,
     ) -> Result<(), Error> {
@@ -164,7 +164,7 @@ impl Initializable for Pool {
             return Err(Error::AlreadyInitialized);
         }
 
-        let periods_in_ledgers = periods_in_days * DAY_IN_LEDGERS as i32;
+        let periods_in_ledgers = periods_in_min * MIN_IN_LEDGERS as i32;
 
         env.storage().instance().set(&InstanceDataKey::Admin, &admin);
         put_oracle_id(&env, oracle);

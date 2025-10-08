@@ -21,7 +21,7 @@ mod mercury_types {
         pub pool_token: Address,
         pub pool_oracle: Address,
         pub asset_symbol: Symbol,
-        pub periods_in_days: i32,
+        pub periods_in_min: i32,
         pub volatility: i128,
         pub multiplier: i32,
     }
@@ -46,7 +46,7 @@ pub trait Interface {
         symbol: Symbol,
         external_asset: bool,
         oracle_asset: Option<Address>,
-        periods_in_days: i32,
+        periods_in_min: i32,
         volatility: i128,
         multiplier: i32,
     ) -> Result<Address, Error>;
@@ -74,7 +74,7 @@ impl Interface for Factory {
         symbol: Symbol,
         external_asset: bool,     // true if oracle sources data from CEX/DEX/etc.
         oracle_asset: Option<Address>, // ignored when external_asset = true
-        periods_in_days: i32,     // length of each insurance period
+        periods_in_min: i32,     // length of each insurance period
         volatility: i128,         // stroops movement threshold for trigger
         multiplier: i32,          // see whitepaper’s premium/benefit section
     ) -> Result<Address, Error> {
@@ -93,7 +93,7 @@ impl Interface for Factory {
             &symbol,
             &external_asset,
             &oracle_asset,
-            &periods_in_days,
+            &periods_in_min,
             &volatility,
             &multiplier,
         );
@@ -113,7 +113,7 @@ impl Interface for Factory {
                 pool_token: token.clone(),
                 pool_oracle: oracle.clone(),
                 asset_symbol: symbol,
-                periods_in_days,              
+                periods_in_min,              
                 volatility,                   
                 multiplier,                   
             }

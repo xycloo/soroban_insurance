@@ -105,8 +105,8 @@ pub(crate) fn find_x(env: &Env, current_period: i32) -> i32 {
     let genesis = get_genesis(env);
     let current_ledger = env.ledger().sequence() as i32;
     let periods = get_periods(env);
-    let end_previous_period = genesis + (current_period - 1) * periods;
-    let x = current_ledger - end_previous_period;
+    let end_current_period = genesis + (current_period) * periods;
+    let x = end_current_period - current_ledger;
     x
 }
 

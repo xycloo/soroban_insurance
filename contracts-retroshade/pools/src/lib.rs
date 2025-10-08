@@ -28,6 +28,7 @@ pub fn compute_fee(amount: &i128) -> i128 {
 // These numbers are conservative but considering the SACs numbers (SACs are much more likely to be invoked)
 // they seem reasonable.
 
+pub(crate) const MIN_IN_LEDGERS: u32 = 12;
 pub(crate) const DAY_IN_LEDGERS: u32 = 17280;
 pub(crate) const INSTANCE_LEDGER_LIFE: u32 = 30 * DAY_IN_LEDGERS; // ~30 days.
 pub(crate) const INSTANCE_LEDGER_TTL_THRESHOLD: u32 = INSTANCE_LEDGER_LIFE - DAY_IN_LEDGERS;
