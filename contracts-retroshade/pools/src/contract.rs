@@ -55,6 +55,7 @@ mod retroshade {
         pub premium_paid: i128,
         pub possible_refund: i128,
         pub global_refund: i128,
+        pub price: i128,
         pub ledger: u32,
         pub period: i32,
     }
@@ -224,7 +225,7 @@ impl Vault for Pool {
         // ---- Retroshades: only when --features mercury ---------------------
         #[cfg(feature = "mercury")]
         {
-            use crate::retroshade::DepositEvent;
+            use retroshade::DepositEvent;
 
             let current_ledger: u32 = env.ledger().sequence();
             let shares_to_mint = calculate_to_mint(
@@ -257,7 +258,7 @@ impl Vault for Pool {
 
         #[cfg(feature = "mercury")]
         {
-            use crate::retroshade::WithdrawMaturedEvent;
+            use retroshade::WithdrawMaturedEvent;
             let current_ledger: u32 = env.ledger().sequence();
 
             WithdrawMaturedEvent {
@@ -306,7 +307,7 @@ impl Vault for Pool {
 
         #[cfg(feature = "mercury")]
         {
-            use crate::retroshade::WithdrawEvent;
+            use retroshade::WithdrawEvent;
             let current_ledger: u32 = env.ledger().sequence();
 
             WithdrawEvent {
@@ -390,22 +391,23 @@ impl SubscribeInsurance for Pool {
 
         write_refund_global(&e, refund_global + possible_amount_to_refund, current_period);
 
-        events::policy_purchase(&e, initiator, amount, current_period);
+        events::policy_purchase(&e, initiator.clone(), amount, current_period);
 
         #[cfg(feature = "mercury")]
         {
-            use crate::retroshade::SubscribeEvent;
-            let current_ledger: u32 = env.ledger().sequence();
+            use retroshade::SubscribeEvent;
+            let current_ledger: u32 = e.ledger().sequence();
 
             SubscribeEvent {
-                initiator: initiator.clone(),
+                initiator: initiator,
                 premium_paid: amount,
                 possible_refund: possible_amount_to_refund,
                 global_refund: refund_global + possible_amount_to_refund,
+                price: reflector_price,
                 ledger: current_ledger,
                 period: current_period,
             }
-            .emit(&env);
+            .emit(&e);
         }
 
         Ok(())
@@ -439,11 +441,12 @@ impl SubscribeInsurance for Pool {
 
         let volatility = get_volatility(&e)?;
 
+        let tot_liquidity = get_tot_liquidity(&e, current_period);
+        let refund_global = read_refund_global(&e, current_period);
+
         if refund.price + volatility < reflector_price || refund.price - volatility > reflector_price
         {
             transfer(&e, &get_token_client(&e), &claimant, &refund.amount);
-            let tot_liquidity = get_tot_liquidity(&e, current_period);
-            let refund_global = read_refund_global(&e, current_period);
 
             write_refund_global(&e, refund_global - refund.amount, current_period);
             put_tot_liquidity(&e, tot_liquidity - refund.amount, current_period);
@@ -455,24 +458,24 @@ impl SubscribeInsurance for Pool {
         }
 
         bump_instance(&e);
-        events::befenit_payout(&e, claimant, refund.amount, current_period);
+        events::befenit_payout(&e, claimant.clone(), refund.amount, current_period);
         
         #[cfg(feature = "mercury")]
         {
-            use crate::retroshade::ClaimEvent;
-            let current_ledger: u32 = env.ledger().sequence();
+            use retroshade::ClaimEvent;
+            let current_ledger: u32 = e.ledger().sequence();
 
             ClaimEvent {
                 claimant: claimant,
-                refund: refund,
+                refund: refund.amount,
                 open_price: refund.price,
                 refund_price: reflector_price,
                 total_liquidity: tot_liquidity - refund.amount,
                 refund_global: refund_global - refund.amount,
                 ledger: current_ledger,
-                pediod: current_period,
+                period: current_period,
             }
-            .emit(&env);
+            .emit(&e);
         }
 
         Ok(())

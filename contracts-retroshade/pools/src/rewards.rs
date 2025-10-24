@@ -45,7 +45,7 @@ pub(crate) fn update_rewards(e: &Env, addr: Address, period: i32) {
     // ---- Retroshades emit (only when --features mercury) -------------------
     #[cfg(feature = "mercury")]
     {
-        use crate::retroshade::UpdateRewardsEvent;
+        use retroshade::UpdateRewardsEvent;
         let current_ledger: u32 = e.ledger().sequence();
 
         UpdateRewardsEvent {
